@@ -1,4 +1,36 @@
+# ---- Python ----
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
 .venv/
 venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Environment / local config ----
+.env
+.env.*
+!.env.example
+
+# ---- Kubernetes ----
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+.kube/
+
+# ---- Helm ----
+charts/**/charts/
+charts/**/Chart.lock
+*.tgz
+
+# ---- Editors ----
+.vscode/
+.idea/
+*.swp
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
