@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
     await app.state.redis.aclose()
 
 
-app = FastAPI(title=APP_NAME, version="0.1.0", lifespan=lifespan)
+app = FastAPI(title=APP_NAME, version="0.1.1", lifespan=lifespan)
 
 
 class ValueIn(BaseModel):
