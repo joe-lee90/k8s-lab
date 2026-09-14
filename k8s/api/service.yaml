@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fastapi
+  namespace: lab
+spec:
+  # NodePort opens the same port on EVERY node, forwarding to this Service.
+  # Crude but it works without any additional infrastructure. Stage 6
+  # replaces this with ClusterIP once Ingress exists.
+  type: NodePort
+  selector:
+    app: fastapi
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+      # Must be 30080 -- that is the port mapped through the kind node
+      # container to your host in kind-cluster.yaml. NodePort's valid
+      # range is 30000-32767.
+      nodePort: 30080

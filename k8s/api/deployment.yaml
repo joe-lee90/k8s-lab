@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi
+  namespace: lab
+  labels:
+    app: fastapi
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fastapi
+  template:
+    metadata:
+      labels:
+        app: fastapi
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001        # the appuser created in your Dockerfile
+      containers:
+        - name: fastapi
+          image: fastapi-redis-lab:0.1.0
+          # IfNotPresent, not Always: the image was side-loaded with
+          # `kind load` and does not exist in any registry. Always would
+          # cause ErrImagePull.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: api-config
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-auth
+                  key: redis-password
+          # Liveness hits /healthz, which never touches Redis. A Redis
+          # outage must not restart these pods.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          # Readiness hits /readyz, which pings Redis. A Redis outage pulls
+          # these pods out of the Service instead of killing them.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 2
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi

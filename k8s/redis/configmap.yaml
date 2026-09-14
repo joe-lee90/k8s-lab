@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: lab
+data:
+  redis.conf: |
+    # Append-only file: every write is journaled to disk, so data survives
+    # a pod restart. Without this, Redis is memory-only and the PVC is
+    # pointless.
+    appendonly yes
+    appendfsync everysec
+
+    # Bind all interfaces -- inside a pod's network namespace this is the
+    # pod's own IP. Same reasoning as --host 0.0.0.0 in Stage 2.
+    bind 0.0.0.0
+
+    # protected-mode off is safe here ONLY because requirepass is set via
+    # the command line and the Service is ClusterIP (cluster-internal).
+    protected-mode no
+
+    maxmemory-policy noeviction
