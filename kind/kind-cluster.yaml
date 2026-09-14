@@ -1,0 +1,38 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: k8s-lab
+
+nodes:
+  # -------------------------------------------------------------------------
+  # Control plane. Also carries the ingress-ready label and the host port
+  # mappings, because the NGINX Ingress controller will be pinned to this
+  # node in Stage 7.
+  # -------------------------------------------------------------------------
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # HTTP: localhost:80 on your machine -> port 80 on this node container
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      # HTTPS
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+      # Reserved for Stage 4's NodePort Service. NodePort allocates from
+      # 30000-32767; we map one specific port through now so that stage can
+      # be tested without recreating the cluster.
+      - containerPort: 30080
+        hostPort: 30080
+        protocol: TCP
+
+  # -------------------------------------------------------------------------
+  # Worker. Application pods land here, so scheduling is observable rather
+  # than trivially predetermined.
+  # -------------------------------------------------------------------------
+  - role: worker
