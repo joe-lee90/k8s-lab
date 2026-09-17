@@ -5,7 +5,7 @@
 set -uo pipefail   # deliberately NOT -e: we want every test to run and
                    # report, rather than aborting on the first failure.
 
-BASE="${BASE_URL:-http://localhost:30080}"
+BASE="${BASE_URL:-http://lab.localhost}"
 PASS=0
 FAIL=0
 

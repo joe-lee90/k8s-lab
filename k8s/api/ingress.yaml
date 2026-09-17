@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fastapi
+  namespace: lab
+  annotations:
+    # ----------------------------------------------------------------------
+    # rewrite-target rewrites the path before proxying to the backend.
+    #
+    # Without it, a request to /api/healthz arrives at the pod as
+    # /api/healthz -- and FastAPI has no such route, so you get a 404 from
+    # YOUR app (not from NGINX). That distinction matters when debugging:
+    # a 404 with a FastAPI JSON body means routing worked and the path is
+    # wrong; a 404 with an NGINX HTML body means routing never matched.
+    #
+    # $1 refers to the first capture group in the path regex below.
+    # ----------------------------------------------------------------------
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+spec:
+  ingressClassName: nginx
+  rules:
+    # ----------------------------------------------------------------------
+    # Rule 1 -- host-based routing.
+    #
+    # Matches only requests whose Host header is lab.localhost. The path is
+    # passed through unchanged, so the app sees exactly what the client
+    # requested.
+    # ----------------------------------------------------------------------
+    - host: lab.localhost
+      http:
+        paths:
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fastapi
+                port:
+                  number: 8000
+
+    # ----------------------------------------------------------------------
+    # Rule 2 -- path-based routing, no host.
+    #
+    # With no `host`, this matches any Host header. /api/healthz is captured
+    # as "healthz" by the group and rewritten to /healthz before proxying.
+    #
+    # pathType must be ImplementationSpecific for regex capture groups to
+    # work. Prefix and Exact do literal matching only, and $1 would be empty.
+    # ----------------------------------------------------------------------
+    - http:
+        paths:
+          - path: /api/(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: fastapi
+                port:
+                  number: 8000

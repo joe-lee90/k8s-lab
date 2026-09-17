@@ -71,6 +71,27 @@ log "Loading $IMAGE into cluster"
 kind load docker-image "$IMAGE" --name "$CLUSTER"
 
 # ---------------------------------------------------------------------------
+# Ingress controller. Idempotent -- apply on an existing install is a no-op.
+# ---------------------------------------------------------------------------
+log "Installing ingress-nginx"
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.13.0/deploy/static/provider/kind/deploy.yaml
+
+# The upstream manifest does not pin the controller to the node whose ports
+# 80/443 are mapped through to the host. Without this it can land on the
+# worker, where it runs happily and receives no external traffic.
+#
+# nodeSelector attracts it to the control plane; the toleration gets it past
+# that node's NoSchedule taint. Both are required -- either alone leaves the
+# pod Pending.
+log "Pinning ingress controller to the control-plane node"
+kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=merge -p '{"spec":{"template":{"spec":{"nodeSelector":{"ingress-ready":"true","kubernetes.io/os":"linux"},"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Equal","effect":"NoSchedule"}]}}}}'
+
+# rollout status, not `kubectl wait` on a label selector: after a patch,
+# the old pod still matches the selector and is still Ready, so wait returns
+# immediately on a pod that is about to be terminated.
+kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=300s
+
+# ---------------------------------------------------------------------------
 # Manifests. Namespace first -- everything else declares `namespace: lab`
 # and fails to apply if the namespace does not exist yet.
 # ---------------------------------------------------------------------------
@@ -103,5 +124,5 @@ kubectl -n "$NAMESPACE" rollout status deployment/fastapi --timeout=180s
 log "Ready"
 kubectl -n "$NAMESPACE" get pods -o wide
 echo
-echo "Endpoint: http://localhost:30080"
-echo "Docs:     http://localhost:30080/docs"
+echo "Endpoint: http://lab.localhost"
+echo "Docs:     http://lab.localhost/docs"
