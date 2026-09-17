@@ -4,17 +4,16 @@ metadata:
   name: fastapi
   namespace: lab
 spec:
-  # NodePort opens the same port on EVERY node, forwarding to this Service.
-  # Crude but it works without any additional infrastructure. Stage 6
-  # replaces this with ClusterIP once Ingress exists.
-  type: NodePort
+  # ClusterIP: reachable only from inside the cluster, via the DNS name
+  # `fastapi` (or fastapi.lab.svc.cluster.local from another namespace).
+  #
+  # In Stage 7 the NGINX Ingress controller becomes the single external
+  # entry point and routes to this Service by name. Keeping this internal
+  # means traffic cannot bypass the ingress layer.
+  type: ClusterIP
   selector:
     app: fastapi
   ports:
     - name: http
       port: 8000
       targetPort: 8000
-      # Must be 30080 -- that is the port mapped through the kind node
-      # container to your host in kind-cluster.yaml. NodePort's valid
-      # range is 30000-32767.
-      nodePort: 30080
