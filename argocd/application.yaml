@@ -1,0 +1,45 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8s-lab
+  namespace: argocd
+  # Without this finalizer, deleting the Application leaves its resources
+  # orphaned in the cluster. With it, deletion cascades properly.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  # ---------------------------------------------------------------------
+  # WHERE the desired state lives.
+  # ---------------------------------------------------------------------
+  source:
+    repoURL: https://github.com/joe-lee90/k8s-lab.git
+    # A branch tracks continuously: push a commit, the cluster changes.
+    # A tag (e.g. stage-9) pins: the cluster does not move until someone
+    # deliberately retags. Production usually pins.
+    targetRevision: main
+    path: charts/k8s-lab
+    helm:
+      valueFiles:
+        - values.yaml
+
+  # ---------------------------------------------------------------------
+  # WHERE it gets applied.
+  # ---------------------------------------------------------------------
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lab
+
+  syncPolicy:
+    automated:
+      # prune: delete resources removed from Git. Off by default, because
+      # it means a bad commit can delete production. On is the right
+      # default for GitOps -- Git is the source of truth, including about
+      # what should NOT exist.
+      prune: true
+      # selfHeal: revert manual changes made directly to the cluster.
+      # This is what makes `kubectl edit` a temporary action.
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
