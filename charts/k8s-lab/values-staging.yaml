@@ -1,0 +1,12 @@
+# Overlay for a lightweight staging install. Only the differences.
+api:
+  replicaCount: 1
+
+redis:
+  persistence:
+    enabled: false
+
+ingress:
+  host: staging.localhost
+  apiPathEnabled: false
+  

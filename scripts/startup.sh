@@ -22,7 +22,8 @@ cd "$REPO_ROOT"
 # version should be running. The script reads it rather than defining its
 # own, so the two can never disagree.
 # ---------------------------------------------------------------------------
-IMAGE="$(grep -m1 'image: fastapi-redis-lab' k8s/api/deployment.yaml | awk '{print $2}')"
+IMAGE="$(grep -A2 'repository: fastapi-redis-lab' charts/k8s-lab/values.yaml | grep 'tag:' | awk '{print $2}' | tr -d '"')"
+IMAGE="fastapi-redis-lab:${IMAGE}"
 
 log() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
@@ -91,35 +92,17 @@ kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=merge 
 # immediately on a pod that is about to be terminated.
 kubectl -n ingress-nginx rollout status deployment/ingress-nginx-controller --timeout=300s
 
-# ---------------------------------------------------------------------------
-# Manifests. Namespace first -- everything else declares `namespace: lab`
-# and fails to apply if the namespace does not exist yet.
-# ---------------------------------------------------------------------------
-log "Applying namespace"
-kubectl apply -f k8s/namespace.yaml
+log "Installing/upgrading Helm release"
+helm upgrade --install lab charts/k8s-lab \
+  --namespace "$NAMESPACE" --create-namespace \
+  --set api.image.tag="${IMAGE##*:}" \
+  --wait --timeout 5m
 
-log "Applying Redis"
-kubectl apply -f k8s/redis/
-# Redis first, and waited on, so that the API pods come up with a reachable
-# dependency. Not required for correctness -- they would eventually become
-# ready on their own -- but it makes failures legible instead of confusing.
-kubectl -n "$NAMESPACE" rollout status deployment/redis --timeout=180s
-
-log "Applying FastAPI"
-kubectl apply -f k8s/api/
-kubectl -n "$NAMESPACE" rollout status deployment/fastapi --timeout=180s
-
-# ---------------------------------------------------------------------------
-# If the image tag did not change, `apply` is a no-op and pods keep running
-# the OLD image even though a new one was just loaded. Restarting the
-# rollout forces them to pick it up.
-#
-# This is the correct fix for a LAB. In production you change the tag
-# instead, so that what is running is always identifiable.
-# ---------------------------------------------------------------------------
-log "Restarting FastAPI to pick up the freshly loaded image"
-kubectl -n "$NAMESPACE" rollout restart deployment/fastapi
-kubectl -n "$NAMESPACE" rollout status deployment/fastapi --timeout=180s
+# The image tag is unchanged between rebuilds, so Helm sees no diff and pods
+# keep the old image. Same mutable-tag problem as before.
+log "Restarting API to pick up the freshly loaded image"
+kubectl -n "$NAMESPACE" rollout restart deployment/lab-k8s-lab-api
+kubectl -n "$NAMESPACE" rollout status deployment/lab-k8s-lab-api --timeout=180s
 
 log "Ready"
 kubectl -n "$NAMESPACE" get pods -o wide

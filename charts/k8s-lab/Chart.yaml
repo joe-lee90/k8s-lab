@@ -1,0 +1,11 @@
+apiVersion: v2
+name: k8s-lab
+description: FastAPI + Redis demo stack
+type: application
+
+# version: the CHART version. Bump when you change templates.
+version: 0.1.0
+
+# appVersion: the version of the APPLICATION being deployed. Informational
+# only -- it does not set the image tag unless a template references it.
+appVersion: "0.1.0"

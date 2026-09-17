@@ -1,0 +1,47 @@
+# Every value that differs between environments lives here. Templates
+# reference these as {{ .Values.<path> }}.
+
+nameOverride: ""
+fullnameOverride: ""
+
+api:
+  replicaCount: 3
+  image:
+    repository: fastapi-redis-lab
+    tag: "0.1.0"
+    # IfNotPresent because the image is side-loaded with `kind load` and
+    # exists in no registry. Always would cause ErrImagePull.
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+redis:
+  image:
+    repository: redis
+    tag: "7-alpine"
+  # Plaintext in Git. Acceptable for a local lab, never for anything real.
+  # See the note in section 8.12.
+  password: labpassword
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: lab.localhost
+  # Also expose everything under /api/* with a rewrite, matching Stage 7.
+  apiPathEnabled: true

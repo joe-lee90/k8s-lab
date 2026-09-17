@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-lab.fullname" . }}-redis
+  labels:
+    {{- include "k8s-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "k8s-lab.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "k8s-lab.labels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          args:
+            - "redis-server"
+            - "/etc/redis/redis.conf"
+            - "--requirepass"
+            - "$(REDIS_PASSWORD)"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-lab.fullname" . }}-redis-auth
+                  key: redis-password
+          ports:
+            - name: redis
+              containerPort: 6379
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redis
+            {{- if .Values.redis.persistence.enabled }}
+            - name: data
+              mountPath: /data
+            {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", 'redis-cli -a "$REDIS_PASSWORD" ping | grep -q PONG']
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "k8s-lab.fullname" . }}-redis-config
+        {{- if .Values.redis.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "k8s-lab.fullname" . }}-redis-data
+        {{- end }}

@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-lab.fullname" . }}-api
+  labels:
+    {{- include "k8s-lab.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "k8s-lab.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "k8s-lab.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+      annotations:
+        # Hash of the ConfigMap contents. When the ConfigMap changes, this
+        # annotation changes, which changes the pod template, which triggers
+        # a rollout. Without it, editing a ConfigMap leaves pods running the
+        # old values indefinitely -- Kubernetes does not restart pods when a
+        # mounted or referenced ConfigMap changes.
+        checksum/config: {{ include (print $.Template.BasePath "/api-configmap.yaml") . | sha256sum }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: api
+          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          imagePullPolicy: {{ .Values.api.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: {{ include "k8s-lab.fullname" . }}-api-config
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "k8s-lab.fullname" . }}-redis-auth
+                  key: redis-password
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 2
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
